@@ -8,3 +8,11 @@ build/
 /x/
 local.properties
 /scrcpy-server
+
+# PhoneDesk local outputs and private validation data
+/phonedesk/build/
+/phonedesk/dist/
+/phonedesk/docs/CURRENT_STATE.md
+/phonedesk/publication/
+*.apk
+adbkey*

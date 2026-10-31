@@ -1,0 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
+import android.media.AudioTrack;import android.media.AudioFormat;import android.media.AudioAttributes;
+public class TestTone{public static void main(String[]args)throws Exception{int rate=48000;short[] pcm=new short[rate*3];for(int i=0;i<pcm.length;i++)pcm[i]=(short)(Math.sin(2*Math.PI*600*i/rate)*2000);
+ AudioTrack track=new AudioTrack.Builder().setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()).setAudioFormat(new AudioFormat.Builder().setSampleRate(rate).setEncoding(AudioFormat.ENCODING_PCM_16BIT).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build()).setTransferMode(AudioTrack.MODE_STATIC).setBufferSizeInBytes(pcm.length*2).build();track.write(pcm,0,pcm.length);track.play();Thread.sleep(3500);track.stop();track.release();System.exit(0);}}

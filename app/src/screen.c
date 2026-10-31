@@ -650,7 +650,8 @@ sc_screen_init(struct sc_screen *screen,
         goto error_destroy_renderer;
     }
 
-    ok = SDL_StartTextInput(screen->window);
+    // PhoneDesk uses the Android IME through UHID. Disable Windows text composition.
+    ok = SDL_StopTextInput(screen->window);
     if (!ok) {
         LOGE("Could not enable text input: %s", SDL_GetError());
         goto error_destroy_texture;
