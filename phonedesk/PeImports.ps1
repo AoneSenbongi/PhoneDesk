@@ -1,4 +1,4 @@
-﻿function Get-PeImports {
+function Get-PeImports {
     param([byte[]]$Bytes)
     function U16([int]$At) { [BitConverter]::ToUInt16($Bytes,$At) }
     function U32([int]$At) { [BitConverter]::ToUInt32($Bytes,$At) }

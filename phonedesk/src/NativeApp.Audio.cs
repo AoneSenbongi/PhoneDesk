@@ -17,7 +17,7 @@ namespace PhoneDesk {
    Program.PcAudio=!Program.PcAudio;AudioSwitch.Refresh(controls[14]);
    foreach(var d in devices) {
     Session session;if(!sessions.TryGetValue(d.Serial,out session)||!session.State.Running)continue;
-    if(Program.PcAudio)StartAudio(d,session);else StopAudio(session);
+    if(Program.PcAudio||session.AlarmActive)StartAudio(d,session);else StopAudio(session);
    }
    foreach(int id in new[]{11,12,13})Native.EnableWindow(controls[id],false);
    QueueAudio(Selected(),"get");FocusStream();
@@ -25,7 +25,7 @@ namespace PhoneDesk {
   void StartAudio(Device d,Session session) {
    if(session.AudioProcess!=null||session.Viewer==null)return;
    session.AudioVolumeReady=false;var p=new Process();
-   p.StartInfo=new ProcessStartInfo(Path.Combine(runtime,"scrcpy.exe"),StreamOptions.AudioArguments(d)){WorkingDirectory=runtime,UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true};
+   p.StartInfo=new ProcessStartInfo(Path.Combine(runtime,"scrcpy.exe"),StreamOptions.AudioArguments(d,session.AlarmActive)){WorkingDirectory=runtime,UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true};
    p.StartInfo.EnvironmentVariables["ADB"]=Path.Combine(runtime,"adb.exe");
    p.OutputDataReceived+=delegate{};p.ErrorDataReceived+=delegate{};
    p.EnableRaisingEvents=true;
@@ -46,7 +46,8 @@ namespace PhoneDesk {
   }
   void QueueAudio(Device d,string request) {
    if(d==null||d.State!="device"||exiting)return;
-   if(Program.PcAudio) {
+   Session current;bool alarm=sessions.TryGetValue(d.Serial,out current)&&current.AlarmActive;
+   if(Program.PcAudio||alarm) {
     Session session;if(!sessions.TryGetValue(d.Serial,out session)||session.AudioProcess==null)return;
     try{
      if(!session.AudioVolumeReady)session.AudioVolumeReady=PcPlayback.NormalizeSession(session.AudioProcess.Id);

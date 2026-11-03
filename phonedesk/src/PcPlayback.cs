@@ -22,15 +22,24 @@ using System;using System.Runtime.InteropServices;
  void RegisterControlChangeNotify(IntPtr callback);void UnregisterControlChangeNotify(IntPtr callback);void GetChannelCount(out uint count);
  void SetMasterVolumeLevel(float value,ref Guid context);void SetMasterVolumeLevelScalar(float value,ref Guid context);
  void GetMasterVolumeLevel(out float value);void GetMasterVolumeLevelScalar(out float value);
+ void SetChannelVolumeLevel(uint channel,float value,ref Guid context);void SetChannelVolumeLevelScalar(uint channel,float value,ref Guid context);
+ void GetChannelVolumeLevel(uint channel,out float value);void GetChannelVolumeLevelScalar(uint channel,out float value);
+ void SetMute([MarshalAs(UnmanagedType.Bool)]bool mute,ref Guid context);void GetMute([MarshalAs(UnmanagedType.Bool)]out bool mute);
 }
 static class PcPlayback {
  internal static int MasterVolume(int? target){
+  bool ignored;return Endpoint(target,null,out ignored);
+ }
+ internal static SpeakerState Capture(){bool muted;int volume=Endpoint(null,null,out muted);return new SpeakerState{Volume=volume,Muted=muted};}
+ internal static void Apply(SpeakerState state){bool ignored;Endpoint(state.Volume,state.Muted,out ignored);}
+ static int Endpoint(int? target,bool? mute,out bool muted){
   object enumerator=null,device=null,volume=null;
   try{
    enumerator=new PcDeviceEnumerator();PcDevice endpoint;((PcEnumerator)enumerator).GetDefaultAudioEndpoint(0,0,out endpoint);device=endpoint;
    Guid iid=typeof(PcEndpointVolume).GUID;endpoint.Activate(ref iid,23,IntPtr.Zero,out volume);
    var control=(PcEndpointVolume)volume;Guid context=Guid.Empty;
    if(target.HasValue)control.SetMasterVolumeLevelScalar(Math.Max(0,Math.Min(100,target.Value))/100f,ref context);
+   if(mute.HasValue)control.SetMute(mute.Value,ref context);control.GetMute(out muted);
    float value;control.GetMasterVolumeLevelScalar(out value);return (int)Math.Round(value*100);
   }finally{foreach(var obj in new object[]{volume,device,enumerator})if(obj!=null)Marshal.ReleaseComObject(obj);}
  }

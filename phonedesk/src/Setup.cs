@@ -7,7 +7,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using Microsoft.Win32;
 [assembly: AssemblyTitle("PhoneDesk Setup")]
-[assembly: AssemblyVersion("1.0.17.0")]
+[assembly: AssemblyVersion("1.0.22.0")]
 class Setup {
  [System.Runtime.InteropServices.DllImport("user32.dll",CharSet=System.Runtime.InteropServices.CharSet.Unicode)]
  static extern int MessageBox(IntPtr window,string text,string caption,uint type);
@@ -21,6 +21,7 @@ class Setup {
    using(p) {try {if(string.Equals(p.MainModule.FileName,exe,StringComparison.OrdinalIgnoreCase))throw new InvalidOperationException("通知領域のPhoneDeskを終了してから、セットアップを再実行してください。");}catch(System.ComponentModel.Win32Exception){}}
   }
   Directory.CreateDirectory(root);
+  RemoveObsoleteFiles(root);
   using(var stream=Assembly.GetExecutingAssembly().GetManifestResourceStream("payload.zip"))
   using(var zip=new ZipArchive(stream,ZipArchiveMode.Read)) {
    foreach(var entry in zip.Entries) {
@@ -40,6 +41,12 @@ class Setup {
  static void Shortcut(string path,string exe,string root) {
   dynamic shell=Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell"));dynamic shortcut=shell.CreateShortcut(path);
   shortcut.TargetPath=exe;shortcut.WorkingDirectory=root;shortcut.Description="Android USB画面表示・操作";shortcut.Save();
+ }
+ internal static void RemoveObsoleteFiles(string root){
+  string remote=Path.Combine(root,"remote");
+  if(Directory.Exists(remote))Directory.Delete(remote,true);
+  string state=Path.Combine(root,"remote-session.json");
+  if(File.Exists(state))File.Delete(state);
  }
  internal static bool SameFile(ZipArchiveEntry entry,string path) {
   if(!File.Exists(path)||new FileInfo(path).Length!=entry.Length)return false;

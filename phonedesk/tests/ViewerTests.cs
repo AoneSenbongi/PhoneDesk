@@ -11,7 +11,9 @@ class ViewerTests {
  [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr window);
  [DllImport("user32.dll")] static extern IntPtr GetDlgItem(IntPtr window,int id);
  [DllImport("user32.dll")] static extern IntPtr GetFocus();
+ [DllImport("user32.dll",CharSet=CharSet.Unicode)] static extern int GetWindowText(IntPtr h,System.Text.StringBuilder text,int length);
  static void Main() {
+  TestDesktop.Enter();
   Native.SetProcessDPIAware();
   var child=Native.CreateWindowEx(0,"STATIC","stream-test",0x00CF0000,20,20,300,700,IntPtr.Zero,IntPtr.Zero,IntPtr.Zero,IntPtr.Zero);
   var shell=Native.CreateWindowEx(0,"STATIC","PhoneDesk test shell",0x02CF0000,40,40,610,290,IntPtr.Zero,IntPtr.Zero,IntPtr.Zero,IntPtr.Zero);
@@ -83,6 +85,8 @@ class ViewerTests {
    update.Invoke(viewer,new object[]{864,1920});Native.GetClientRect(shell,out client);
    Check(Math.Abs(client.Right-(client.Bottom-44)*aspect)<3,"repeat rotation restores portrait aspect");
    Check(GetDlgItem(viewer.Window,24)!=IntPtr.Zero,"right rotation button exists");
+   var rotationCaption=new System.Text.StringBuilder(30);GetWindowText(GetDlgItem(viewer.Window,24),rotationCaption,30);
+   Check(rotationCaption.ToString()=="回転","compact rotation label fits narrow toolbar");
    viewer.SetDeviceRotation(true);Native.GetClientRect(shell,out client);
    Check(viewer.Rotated&&Math.Abs(client.Right-(client.Bottom-44)*aspect)<3,"rotation button does not rotate PC alone");
    viewer.UpdateFrameSize(1920,864);Native.GetClientRect(shell,out client);

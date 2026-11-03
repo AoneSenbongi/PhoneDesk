@@ -8,9 +8,25 @@ namespace PhoneDesk {
         public static string Arguments(Device d) {
             return "--serial="+DeviceParser.Quote(d.Serial)+" --keyboard=uhid --no-audio --no-clipboard-autosync --max-size=1920 --max-fps=60 --window-width=420 --window-x=-10000 --window-y=-10000 --window-title="+DeviceParser.Quote("PhoneDesk | "+d.Model);
         }
-        public static string AudioArguments(Device d) {
-            return "--serial="+DeviceParser.Quote(d.Serial)+" --no-window --audio-source=playback";
+        public static string AudioArguments(Device d,bool duplicate=false) {
+            return "--serial="+DeviceParser.Quote(d.Serial)+" --no-window --audio-source=playback"+(duplicate?" --audio-dup":"");
         }
+    }
+    public sealed class SpeakerState { public int Volume; public bool Muted; }
+    public sealed class AlarmVolumeOverride {
+        readonly Func<SpeakerState> read;readonly Action<SpeakerState> write;
+        readonly HashSet<string> alarms=new HashSet<string>();SpeakerState previous;
+        public bool Active {get{return alarms.Count>0;}}
+        public AlarmVolumeOverride(Func<SpeakerState> capture,Action<SpeakerState> apply){read=capture;write=apply;}
+        public void Set(string device,bool active){
+            if(active){
+                if(alarms.Contains(device))return;
+                if(!Active){previous=read();write(new SpeakerState{Volume=100,Muted=false});}
+                alarms.Add(device);
+            }else if(alarms.Remove(device)&&!Active){write(previous);previous=null;}
+        }
+        public void Refresh(){if(Active){var now=read();if(now.Volume!=100||now.Muted)write(new SpeakerState{Volume=100,Muted=false});}}
+        public void Clear(){if(!Active)return;write(previous);alarms.Clear();previous=null;}
     }
     public sealed class VolumeState {
         public int Value, Min, Max;

@@ -62,13 +62,31 @@ sc_key_processor_process_key(struct sc_key_processor *kp,
 
     assert(sc_thread_is_main());
 
+    struct sc_keyboard_uhid *kb = DOWNCAST(kp);
+
+    // PhoneDesk: pace Backspace from PC repeat events. Releasing each press
+    // prevents Android host repeat from racing with the PC repeat stream.
+    if (event->scancode == SC_SCANCODE_BACKSPACE) {
+        if (event->action == SC_ACTION_DOWN) {
+            struct sc_key_event press = *event;
+            press.repeat = false;
+            struct sc_hid_input report;
+            sc_keyboard_uhid_synchronize_mod(kb);
+            if (sc_hid_keyboard_generate_input_from_key(&kb->hid, &report, &press)) {
+                sc_keyboard_uhid_send_input(kb, &report);
+                press.action = SC_ACTION_UP;
+                sc_hid_keyboard_generate_input_from_key(&kb->hid, &report, &press);
+                sc_keyboard_uhid_send_input(kb, &report);
+            }
+        }
+        return;
+    }
+
     if (event->repeat) {
         // In USB HID protocol, key repeat is handled by the host (Android), so
         // just ignore key repeat here.
         return;
     }
-
-    struct sc_keyboard_uhid *kb = DOWNCAST(kp);
 
     struct sc_hid_input hid_input;
 

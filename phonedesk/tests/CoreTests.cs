@@ -9,7 +9,7 @@ class CoreTests {
         Check(ds.Count == 4, "parse count");
         Check(ds[0].Usb && ds[0].State == "device" && ds[0].Model == "Pixel 7", "USB model");
         Check(!ds[1].Usb, "exclude wireless");
-        Check(DeviceParser.Parse("USB-DEMO-001 device product:PacmanJPN model:A142 device:Pacman transport_id:214")[0].Usb, "Windows USB without usb attribute");
+        Check(DeviceParser.Parse("0123456789ABCDEF device product:PacmanJPN model:A142 device:Pacman transport_id:214")[0].Usb, "Windows USB without usb attribute");
         Check(!DeviceParser.Parse("adb-abc._adb-tls-connect._tcp device model:Remote")[0].Usb, "exclude mDNS wireless");
         Check(!DeviceParser.Parse("emulator-5554 device model:Emulator")[0].Usb, "exclude emulator");
         Check(ds[2].State == "unauthorized" && ds[3].State == "offline", "not ready");

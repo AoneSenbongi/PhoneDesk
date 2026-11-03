@@ -24,7 +24,7 @@ namespace PhoneDesk {
    Window=Native.CreateWindowEx(0,"STATIC","",unchecked((int)0x52000000),0,0,1,1,Shell,IntPtr.Zero,IntPtr.Zero,IntPtr.Zero);
    if(Window==IntPtr.Zero)throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
    callback=WindowProc;Native.Subclass(Window,-4,callback);
-   string[] labels={"点灯","消灯","ロック","右回転","詳細"};int[] ids={20,21,22,24,23};
+   string[] labels={"点灯","消灯","ロック","回転","詳細"};int[] ids={20,21,22,24,23};
    for(int i=0;i<labels.Length;i++) {
     buttons[i]=Native.CreateWindowEx(0,"BUTTON",labels[i],0x50010000,0,0,1,1,Window,new IntPtr(ids[i]),IntPtr.Zero,IntPtr.Zero);
     Native.SendMessage(buttons[i],0x0030,font,new IntPtr(1));
@@ -39,7 +39,7 @@ namespace PhoneDesk {
   internal void Fit(int preferredWidth,int leftShift=0) {
    int fw,fh;Frame(out fw,out fh);
    var monitor=Monitor();
-   if(DetailsWidth>0)preferredWidth=Math.Max(preferredWidth,(int)Math.Ceiling(436*aspect));
+   if(DetailsWidth>0)preferredWidth=Math.Max(preferredWidth,(int)Math.Ceiling(476*aspect));
    preferredWidth=Math.Max(1,Math.Min(preferredWidth,monitor.Work.Right-monitor.Work.Left-fw-DetailsWidth));
    int height=Math.Min(monitor.Work.Bottom-monitor.Work.Top,(int)Math.Round(preferredWidth/aspect)+ToolbarHeight+fh);
    int width=(int)Math.Round((height-fh-ToolbarHeight)*aspect)+fw+DetailsWidth;
@@ -51,7 +51,7 @@ namespace PhoneDesk {
    if(width<=0||height<=0||(width>height)==frameLandscape)return;
    frameLandscape=width>height;FlipAspect();
   }
-  internal void SetDeviceRotation(bool rotated){Rotated=rotated;Native.SetWindowText(buttons[3],rotated?"戻す":"右回転");}
+  internal void SetDeviceRotation(bool rotated){Rotated=rotated;Native.SetWindowText(buttons[3],rotated?"戻す":"回転");}
   internal void ToggleRotation(){power("rotate");}
   void FlipAspect(){
    Native.Rect r;Native.GetClientRect(Shell,out r);

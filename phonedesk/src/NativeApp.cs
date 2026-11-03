@@ -11,7 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Win32;
 [assembly: System.Reflection.AssemblyTitle("PhoneDesk")]
-[assembly: System.Reflection.AssemblyVersion("1.0.17.0")]
+[assembly: System.Reflection.AssemblyVersion("1.0.22.0")]
 namespace PhoneDesk {
  static class Native {
   internal delegate IntPtr WndProc(IntPtr h,uint m,IntPtr w,IntPtr l);
@@ -56,6 +56,7 @@ namespace PhoneDesk {
   [DllImport("user32.dll")] internal static extern bool ShowWindow(IntPtr h,int cmd);
   [DllImport("user32.dll")] internal static extern bool SetForegroundWindow(IntPtr h);
   [DllImport("user32.dll")] internal static extern bool DestroyWindow(IntPtr h);
+  [DllImport("user32.dll")] internal static extern bool InvalidateRect(IntPtr h,IntPtr rect,bool erase);
   [DllImport("user32.dll")] internal static extern UIntPtr SetTimer(IntPtr h,UIntPtr id,uint ms,IntPtr callback);
   [DllImport("user32.dll")] internal static extern bool KillTimer(IntPtr h,UIntPtr id);
   [DllImport("user32.dll")] internal static extern bool SetProcessDPIAware();
@@ -72,6 +73,7 @@ namespace PhoneDesk {
   [DllImport("user32.dll")] internal static extern bool GetCursorPos(out Point pt);
   [DllImport("user32.dll")] internal static extern int TrackPopupMenu(IntPtr menu,uint flags,int x,int y,int reserved,IntPtr h,IntPtr rect);
   [DllImport("user32.dll")] internal static extern bool DestroyMenu(IntPtr menu);
+  [DllImport("user32.dll",CharSet=CharSet.Unicode)] internal static extern int MessageBox(IntPtr h,string text,string title,uint flags);
   [DllImport("shell32.dll",CharSet=CharSet.Unicode)] internal static extern bool Shell_NotifyIcon(uint action,ref NotifyIcon icon);
   [DllImport("user32.dll",CharSet=CharSet.Unicode)] internal static extern uint RegisterWindowMessage(string name);
  }
@@ -98,7 +100,8 @@ namespace PhoneDesk {
   }
  }
  sealed class Session {
-  internal readonly SessionState State=new SessionState(); internal Process Process,AudioProcess,ClipboardProcess,RotationProcess;
+  internal readonly SessionState State=new SessionState(); internal Process Process,AudioProcess,ClipboardProcess,RotationProcess,AlarmProcess;
+  internal bool AlarmActive;internal string Serial;
   internal readonly StringBuilder Errors=new StringBuilder();
   internal Viewer Viewer;
   internal bool AudioVolumeReady;
@@ -121,12 +124,25 @@ namespace PhoneDesk {
   bool busy,powerBusy,exiting; string lastError="";
   internal void Run(bool background) {
    Directory.CreateDirectory(data);
-   window=Native.CreateWindowEx(0,"STATIC","PhoneDesk",unchecked((int)0x02CF0000),200,150,610,442,IntPtr.Zero,IntPtr.Zero,IntPtr.Zero,IntPtr.Zero);
+   InitializeWindow();
+   if(!File.Exists(Path.Combine(data,"initialized"))) {Program.Startup=true;File.WriteAllText(Path.Combine(data,"initialized"),"1");}
+   Native.SendMessage(startup,0x00F1,new IntPtr(Program.Startup?1:0),IntPtr.Zero);
+   taskbarCreated=Native.RegisterWindowMessage("TaskbarCreated");
+   tray=new Native.NotifyIcon {size=(uint)Marshal.SizeOf(typeof(Native.NotifyIcon)),h=window,id=1,flags=7,callback=0x8002,icon=Native.LoadIcon(IntPtr.Zero,new IntPtr(32512)),tip="PhoneDesk — USB接続待ち"};
+   Native.Shell_NotifyIcon(0,ref tray);Native.SetTimer(window,new UIntPtr(1),2000,IntPtr.Zero);
+   if(!background) Reveal(); Poll();
+   Native.Msg msg; while(Native.GetMessage(out msg,IntPtr.Zero,0,0)>0) {
+    if(!Native.IsDialogMessage(window,ref msg)) {Native.TranslateMessage(ref msg);Native.DispatchMessage(ref msg);}
+   }
+   show.Dispose();screenOff.Dispose();screenOn.Dispose();screenLock.Dispose();if(font!=IntPtr.Zero) Native.DeleteObject(font);
+  }
+  internal void InitializeWindow(){
+   window=Native.CreateWindowEx(0,"STATIC","PhoneDesk",unchecked((int)0x02CF0000),200,150,610,482,IntPtr.Zero,IntPtr.Zero,IntPtr.Zero,IntPtr.Zero);
    if(window==IntPtr.Zero) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
    callback=WindowProc; Native.Subclass(window,-4,callback);
    var systemMenu=Native.GetSystemMenu(window,false);Native.AppendMenu(systemMenu,0x0800,UIntPtr.Zero,"");Native.AppendMenu(systemMenu,0,new UIntPtr(0x1F00),"詳細");
    detailsPanel=Native.CreateWindowEx(0,"STATIC","",0x52000000,0,0,594,251,window,IntPtr.Zero,IntPtr.Zero,IntPtr.Zero);
-   panelCallback=delegate(IntPtr h,uint m,IntPtr w,IntPtr l){if(m==0x0111||m==0x0114||m==0x002B)return Native.SendMessage(window,m,w,l);return Native.DefWindowProc(h,m,w,l);};
+   panelCallback=delegate(IntPtr h,uint m,IntPtr w,IntPtr l){if(m==0x0014)return PaintBackground(h,w);if(m==0x0111||m==0x0114||m==0x002B)return Native.SendMessage(window,m,w,l);return Native.DefWindowProc(h,m,w,l);};
    Native.Subclass(detailsPanel,-4,panelCallback);
    font=Native.CreateFont(-18,0,0,0,400,0,0,0,1,0,0,5,0,"Yu Gothic UI");
    var common=new Native.CommonControls{Size=8,Classes=4};Native.InitCommonControlsEx(ref common);
@@ -146,16 +162,6 @@ namespace PhoneDesk {
    Control("BUTTON","PCから音を出す",12,208,296,28,14,0x0001000B);
    foreach(int id in new[]{11,12,13})Native.EnableWindow(controls[id],false);
    LayoutShell();
-   if(!File.Exists(Path.Combine(data,"initialized"))) {Program.Startup=true;File.WriteAllText(Path.Combine(data,"initialized"),"1");}
-   Native.SendMessage(startup,0x00F1,new IntPtr(Program.Startup?1:0),IntPtr.Zero);
-   taskbarCreated=Native.RegisterWindowMessage("TaskbarCreated");
-   tray=new Native.NotifyIcon {size=(uint)Marshal.SizeOf(typeof(Native.NotifyIcon)),h=window,id=1,flags=7,callback=0x8002,icon=Native.LoadIcon(IntPtr.Zero,new IntPtr(32512)),tip="PhoneDesk — USB接続待ち"};
-   Native.Shell_NotifyIcon(0,ref tray);Native.SetTimer(window,new UIntPtr(1),2000,IntPtr.Zero);
-   if(!background) Reveal(); Poll();
-   Native.Msg msg; while(Native.GetMessage(out msg,IntPtr.Zero,0,0)>0) {
-    if(!Native.IsDialogMessage(window,ref msg)) {Native.TranslateMessage(ref msg);Native.DispatchMessage(ref msg);}
-   }
-   show.Dispose();screenOff.Dispose();screenOn.Dispose();screenLock.Dispose();if(font!=IntPtr.Zero) Native.DeleteObject(font);
   }
   IntPtr Control(string cls,string text,int x,int y,int w,int h,int id,int extra) {
    var result=Native.CreateWindowEx(0,cls,text,unchecked((int)0x50000000)|extra,x,y,w,h,detailsPanel,new IntPtr(id),IntPtr.Zero,IntPtr.Zero);
@@ -164,6 +170,7 @@ namespace PhoneDesk {
   }
   IntPtr WindowProc(IntPtr h,uint m,IntPtr w,IntPtr l) {
    try {
+    if(m==0x0014)return PaintBackground(h,w);
     if(m==0x002B&&w.ToInt32()==14){AudioSwitch.Draw(l,Program.PcAudio,font);return new IntPtr(1);}
     if(m==0x0114&&l==controls[13]){QueueAudio(Selected(),Native.SendMessage(controls[13],0x0400,IntPtr.Zero,IntPtr.Zero).ToInt32().ToString());if((w.ToInt32()&65535)==8)FocusStream();return IntPtr.Zero;}
     if(m==0x0007&&active!=null&&active.Viewer!=null){active.Viewer.Focus();return IntPtr.Zero;}
@@ -194,6 +201,7 @@ namespace PhoneDesk {
    }catch(Exception ex){Error(ex.Message);}
    return Native.DefWindowProc(h,m,w,l);
   }
+  static IntPtr PaintBackground(IntPtr h,IntPtr dc){Native.Rect r;Native.GetClientRect(h,out r);Native.FillRect(dc,ref r,new IntPtr(16));return new IntPtr(1);}
   void Reveal(){Native.ShowWindow(window,9);Native.SetForegroundWindow(window);FocusStream();}
   void FocusStream(){if(active!=null&&active.Viewer!=null)active.Viewer.Focus();}
   void LayoutShell(){
@@ -206,7 +214,8 @@ namespace PhoneDesk {
    Native.ShowWindow(detailsPanel,expanded?5:0);
    if(!expanded)return;
    int panelWidth=viewer==null?r.Right:viewer.DetailsWidth;
-   Native.SetWindowPos(detailsPanel,IntPtr.Zero,0,0,panelWidth,viewer==null?396:Math.Max(436,r.Bottom),0x0010);
+   Native.SetWindowPos(detailsPanel,IntPtr.Zero,0,0,panelWidth,r.Bottom,0x0010);
+   Native.InvalidateRect(window,IntPtr.Zero,true);Native.InvalidateRect(detailsPanel,IntPtr.Zero,true);
    int width=Math.Max(1,panelWidth-24);
    bool connected=viewer!=null;
    Native.ShowWindow(controls[10],connected?5:0);
@@ -218,7 +227,8 @@ namespace PhoneDesk {
    for(int i=0;i<ids.Length;i++)PlaceControl(ids[i],12+i*(width+6)/4,96+offset,(width+6)/4-6,32);
    PlaceControl(15,12,136+offset,width,32);PlaceControl(11,12,176+offset,(width-6)/2,32);PlaceControl(12,12+(width+6)/2,176+offset,(width-6)/2,32);
    PlaceControl(13,12,212+offset,width,36);
-   PlaceControl(14,12,248+offset,width,28);PlaceControl(4,12,284+offset,width,32);PlaceControl(5,12,324+offset,width,28);PlaceControl(0,12,360+offset,width,24);
+   PlaceControl(14,12,248+offset,width,28);PlaceControl(4,12,284+offset,width,32);
+   PlaceControl(5,12,324+offset,width,28);PlaceControl(0,12,360+offset,width,24);
   }
   void PlaceControl(int id,int x,int y,int width,int height){IntPtr h;if(controls.TryGetValue(id,out h))Native.SetWindowPos(h,IntPtr.Zero,x,y,width,height,0x0014);}
   void ToggleDetails(){if(active==null||active.Viewer==null)return;active.Viewer.SetDetails(active.Viewer.DetailsWidth==0);LayoutShell();}
@@ -228,7 +238,7 @@ namespace PhoneDesk {
    s.Viewer.Fit(420);LayoutShell();s.Viewer.Reveal();
   }
   void RemoveViewer(Session s){
-   if(active==s){active=null;Native.SetWindowText(window,"PhoneDesk");if(!exiting){Native.ShowWindow(window,9);Native.SetWindowPos(window,IntPtr.Zero,0,0,610,442,0x0016);LayoutShell();}}
+   if(active==s){active=null;Native.SetWindowText(window,"PhoneDesk");if(!exiting){Native.ShowWindow(window,9);Native.SetWindowPos(window,IntPtr.Zero,0,0,610,482,0x0016);LayoutShell();}}
    if(s.Viewer!=null){s.Viewer.Dispose();s.Viewer=null;}
   }
   void Menu(){
@@ -261,7 +271,8 @@ namespace PhoneDesk {
    Native.SendMessage(list,0x000B,IntPtr.Zero,IntPtr.Zero);Native.SendMessage(list,0x0184,IntPtr.Zero,IntPtr.Zero);
    int selected=0;for(int i=0;i<devices.Count;i++){Native.SendText(list,0x0180,IntPtr.Zero,devices[i].ToString());if(devices[i].Serial==serial)selected=i;}
    Native.SendMessage(list,0x0186,new IntPtr(selected),IntPtr.Zero);Native.SendMessage(list,0x000B,new IntPtr(1),IntPtr.Zero);
-   foreach(var d in devices.Where(x=>x.State=="device")){Session s;if(!sessions.TryGetValue(d.Serial,out s)){s=new Session();sessions.Add(d.Serial,s);}if(s.State.ShouldStart(DateTime.UtcNow))Start(d,s);}
+   foreach(var d in devices.Where(x=>x.State=="device")){Session s;if(!sessions.TryGetValue(d.Serial,out s)){s=new Session{Serial=d.Serial};sessions.Add(d.Serial,s);}if(s.State.ShouldStart(DateTime.UtcNow))Start(d,s);}
+   try{alarmVolume.Refresh();}catch{Error("アラーム音量の維持失敗");}
    string message;
    if(devices.Any(d=>d.State=="unauthorized"))message="未認証";
    else if(devices.Any(d=>d.State=="offline"))message="オフライン";
@@ -284,7 +295,7 @@ namespace PhoneDesk {
     };
     p.EnableRaisingEvents=true;p.Exited+=delegate{int code;try{code=p.ExitCode;}catch{code=1;}Dispatch(delegate{
      if(s.Process!=p)return;s.State.Exited(code,DateTime.UtcNow);
-     StopRotation(s);StopClipboard(s);StopAudio(s);RemoveViewer(s);
+     StopRotation(s);StopClipboard(s);StopAlarmWatch(s);StopAudio(s);RemoveViewer(s);
      if(code!=0){string diagnostic;lock(s.Errors)diagnostic=s.Errors.ToString();Error("表示失敗（"+s.State.Failures+"/3）");try{File.WriteAllText(Path.Combine(data,"last-error.txt"),diagnostic,Encoding.UTF8);}catch{}}
      p.Dispose();
     });};
@@ -294,7 +305,7 @@ namespace PhoneDesk {
       IntPtr child=IntPtr.Zero;
       for(int i=0;i<80&&!p.HasExited;i++){p.Refresh();child=p.MainWindowHandle;if(child!=IntPtr.Zero)break;Thread.Sleep(100);}
       if(child==IntPtr.Zero) {Dispatch(delegate{if(s.Process==p){Stop(s);s.State.Exited(1,DateTime.UtcNow);Error("表示ウィンドウの取得失敗");}});return;}
-      Dispatch(delegate {if(s.Process==p&&!p.HasExited){s.Viewer=new Viewer(window,child,font,delegate(string mode){if(mode=="rotate")ToggleDeviceRotation(d);else DevicePowerAction(mode,d);},ToggleDetails);s.Viewer.UpdateFrameSize(s.FrameWidth,s.FrameHeight);s.Viewer.SetDeviceRotation(s.RotationProcess!=null);ShowSession(s,d);StartClipboard(d,s);if(Program.PcAudio)StartAudio(d,s);}});
+      Dispatch(delegate {if(s.Process==p&&!p.HasExited){s.Viewer=new Viewer(window,child,font,delegate(string mode){if(mode=="rotate")ToggleDeviceRotation(d);else DevicePowerAction(mode,d);},ToggleDetails);s.Viewer.UpdateFrameSize(s.FrameWidth,s.FrameHeight);s.Viewer.SetDeviceRotation(s.RotationProcess!=null);ShowSession(s,d);StartClipboard(d,s);StartAlarmWatch(d,s);if(Program.PcAudio)StartAudio(d,s);}});
      }catch(Exception ex){Dispatch(delegate{Error(ex.Message);});}
     });
    }catch(Exception ex){s.State.Exited(1,DateTime.UtcNow);Error(ex.Message);}
@@ -360,6 +371,6 @@ namespace PhoneDesk {
     }catch(Exception ex){Dispatch(delegate{powerBusy=false;Error(ex.Message);});}
    });
   }
-  void Stop(Session s){StopRotation(s);StopClipboard(s);StopAudio(s);var p=s.Process;s.Process=null;RemoveViewer(s);if(p!=null){try{if(!p.HasExited)p.Kill();}catch{}p.Dispose();}}
+  void Stop(Session s){StopRotation(s);StopClipboard(s);StopAlarmWatch(s);StopAudio(s);var p=s.Process;s.Process=null;RemoveViewer(s);if(p!=null){try{if(!p.HasExited)p.Kill();}catch{}p.Dispose();}}
  }
 }

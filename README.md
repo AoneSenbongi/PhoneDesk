@@ -1,4 +1,4 @@
-# PhoneDesk
+﻿# PhoneDesk
 
 [scrcpy](https://github.com/Genymobile/scrcpy) をベースにした、Windows向けAndroid操作アプリです。Genymobile公式版とは別の派生プロジェクトです。
 
@@ -10,6 +10,8 @@
 - スマホ本体の右回転と元に戻す操作。切断時は回転設定を復元
 - PC音声出力の切り替え。映像・キーボードを再接続せず、Windows全体の音量へ同期
 - スマホでコピーしたテキストをPCへ転送。PCからスマホへの自動転送は無効
+- Backspace長押しによる確定済み文字の連続削除
+- 端末のアラーム中はPCを音量100%・消音解除にし、スマホでも再生。終了後に復元（実機の時計アプリは未確認）
 
 ## 対応環境・制限
 
@@ -21,7 +23,8 @@ Windows 10/11 x64、.NET Framework 4.x、USBデバッグと端末側の接続許
 
 - `phonedesk/`：Windows GUI、自動接続、音量・電源・回転・コピー共有のヘルパー、セットアップ、テスト
 - `app/src/screen.c`：Windows IMEがUHID入力を消費しないよう、SDLのテキスト入力を無効化
-- Windowsパッケージのビルドは、SHA-256を固定した公式バイナリに同じSDLインポート変更を適用します。ネイティブクライアントをソースから再ビルドしたものではありません。
+- `app/src/uhid/keyboard_uhid.c`：Backspaceの各押下・リピートをUHID押下・解放へ変換し、PCの長押し速度で連続削除
+- Windowsパッケージのscrcpyクライアントは、このForkのソースからビルドします。ADB・server・依存DLLはSHA-256を固定した公式配布物から取得します。
 
 詳細は[PhoneDeskの使い方](phonedesk/README.md)、[設計](phonedesk/docs/DESIGN.md)、[検証結果](phonedesk/docs/VALIDATION.md)を参照してください。上流の説明は[README.upstream.md](README.upstream.md)に保持しています。
 
@@ -34,7 +37,7 @@ cd phonedesk
 ./build.ps1
 ```
 
-WindowsアプリのビルドにはWindows標準の.NET Framework C#コンパイラーを使用します。初回は公式scrcpy v5.0.1配布物をダウンロードし、SHA-256を照合します。生成されるセットアップは`phonedesk/dist/PhoneDesk-Setup.exe`です。
+WindowsアプリのビルドにはWindows標準の.NET Framework C#コンパイラー、MinGW-w64のGCC・gendef・dlltool・pkg-config・ninja、Pythonを使用します。初回は公式scrcpy v5.0.1配布物をダウンロードし、SHA-256を照合します。生成されるセットアップは`phonedesk/dist/PhoneDesk-Setup.exe`です。
 
 ## ライセンス・クレジット
 
