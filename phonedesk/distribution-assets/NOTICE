@@ -1,0 +1,11 @@
+PhoneDesk
+Copyright 2026 AoneSenbongi
+
+Based on scrcpy v5.0.1 by Genymobile, Romain Vimont, and scrcpy contributors.
+Original project: https://github.com/Genymobile/scrcpy
+Upstream copyright and license notices remain in their original files.
+
+PhoneDesk additions: Windows launcher/UI, power and rotation helpers,
+one-way clipboard forwarding, Windows master volume controls, alarm monitoring, and setup.
+The native client disables SDL text composition for the Android UHID IME path.
+The native UHID keyboard sends a Backspace press/release pair for each PC repeat.

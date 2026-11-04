@@ -52,7 +52,10 @@ Source: app/src/screen.c, app/src/uhid/keyboard_uhid.c
 if (!(Test-Path "$build\LICENSE-scrcpy.txt")) { Invoke-WebRequest 'https://raw.githubusercontent.com/Genymobile/scrcpy/v5.0.1/LICENSE' -OutFile "$build\LICENSE-scrcpy.txt" }
 Copy-Item "$build\LICENSE-scrcpy.txt" "$package\runtime\LICENSE-scrcpy.txt" -Force
 Copy-Item "$root\README.md" "$package\README.md" -Force
+Copy-Item "$root\distribution-assets\*" $package -Recurse -Force
 Compress-Archive -Path "$package\*" -DestinationPath "$build\payload.zip" -Force
 & $csc /nologo /target:winexe /platform:x64 /optimize+ "/out:$root\dist\PhoneDesk-Setup.exe" "/resource:$build\payload.zip,payload.zip" /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll /reference:Microsoft.CSharp.dll "$root\src\Setup.cs"
 if ($LASTEXITCODE -ne 0) { throw 'Setup compilation failed' }
+& "$build\SetupTests.exe" "$root\dist\PhoneDesk-Setup.exe"
+if ($LASTEXITCODE -ne 0) { throw 'Setup payload extraction failed' }
 Get-FileHash "$root\dist\PhoneDesk-Setup.exe" -Algorithm SHA256

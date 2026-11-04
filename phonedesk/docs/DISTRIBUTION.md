@@ -1,9 +1,9 @@
-# 配布依存について
+﻿# バイナリ配布
 
-今回の公開候補はソースリポジトリです。既存のWindows ZIPを一般公開するRelease操作は含めません。
+PhoneDesk-Setup.exeを単体で配布します。第三者ライセンス・NOTICE・依存ソース情報・FFmpegビルド情報はdistribution-assets/からペイロードへ含め、インストール先のlicenses/等へ展開します。
 
-Windowsビルドはscrcpy公式配布物を取得します。含まれるscrcpy/ADB/SDL/libusb/FFmpegなどのバイナリは、PhoneDeskソースのApache License 2.0だけで一括して扱いません。
+同じReleaseへPhoneDesk-1.0.22-Sources.zipとSHA256SUMSを添付する構成です。ソースZIPには該当コミットのgit archive、FFmpeg 9.0.2、SDL 3.4.18、libusb 1.0.30、dav1d 1.5.4のソースと上流ビルド手順を収録します。版・取得URL・SHA-256はSOURCES.jsonに記載します。
 
-ローカルの公式配布物をAPIで調査したところ、FFmpeg DLLはLGPL 2.1以降を返しました。依存ライセンス本文、該当ソースの提供経路、ビルド情報、改変範囲を整理したうえでバイナリReleaseを準備します。現時点ではバイナリ配布の準備完了とは扱いません。
+ADBはGoogleのplatform-tools 37.0.1と3ファイルのバイト一致を確認し、同じ配布物のNOTICEを収録しています。FFmpeg DLLのライセンス表示はLGPL 2.1以降で、共有ビルドを使用しています。MinGWランタイムとGCC Runtime Exception等も同梱します。
 
-追加したJavaヘルパーのソースは`../src/`、対応するビルド済みヘルパーは`../runtime-assets/`に含めています。端末アプリ・個人データ・ADB認証鍵は含めません。
+インストーラーの展開処理を使用し、一時フォルダーへの実ペイロード展開を検証します。通常のインストール・自動起動設定・アプリ起動はこの検証では実行しません。

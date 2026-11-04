@@ -1,0 +1,14 @@
+PhoneDesk 1.0.22 source and dependency bundle
+
+PhoneDesk-source.zip is an exact git archive of the commit identified by SOURCE-MANIFEST.json in the source bundle.
+Build Windows client/setup using phonedesk/build.ps1 and phonedesk/build-native.ps1.
+Build requirements and validation are in README.md and phonedesk/docs/VALIDATION.md.
+The Windows scrcpy client is modified; adb, scrcpy-server and third-party DLLs are unmodified from the SHA-256-pinned official scrcpy v5.0.1 Windows release.
+
+Dependency source tarballs are in dependencies/. Exact upstream build recipes:
+  app/deps/ffmpeg.sh, sdl.sh, libusb.sh, dav1d.sh, _init
+  release/build_windows.sh and release/build_common
+The FFmpeg shared-library configuration is FFMPEG-BUILD.json.
+The native PhoneDesk build uses MinGW-w64 GCC 15.2.0, SDL 3.4.18, FFmpeg 9.0.2 headers; the bundled FFmpeg DLLs are the upstream shared build.
+ADB 37.0.1 is unmodified and byte-checked against Google's platform-tools archive. Notices are included; source is maintained at https://android.googlesource.com/platform/packages/modules/adb/ .
+dav1d 1.5.4 is included in the upstream FFmpeg build. SDL uses zlib license, libusb and FFmpeg use LGPL 2.1 or later, dav1d uses BSD-2-Clause. See individual license texts, not the PhoneDesk Apache license, for dependency terms.

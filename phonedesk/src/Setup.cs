@@ -24,13 +24,7 @@ class Setup {
   RemoveObsoleteFiles(root);
   using(var stream=Assembly.GetExecutingAssembly().GetManifestResourceStream("payload.zip"))
   using(var zip=new ZipArchive(stream,ZipArchiveMode.Read)) {
-   foreach(var entry in zip.Entries) {
-    string dest=Path.GetFullPath(Path.Combine(root,entry.FullName));
-    if(!dest.StartsWith(Path.GetFullPath(root)+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))throw new IOException("Invalid archive path");
-    if(entry.Name.Length==0){Directory.CreateDirectory(dest);continue;}
-    if(SameFile(entry,dest))continue;
-    Directory.CreateDirectory(Path.GetDirectoryName(dest));entry.ExtractToFile(dest,true);
-   }
+   ExtractPayload(zip,root);
   }
   using(var k=Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run"))k.SetValue("PhoneDesk","\""+exe+"\" --background");
   Shortcut(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),"PhoneDesk.lnk"),exe,root);
@@ -41,6 +35,15 @@ class Setup {
  static void Shortcut(string path,string exe,string root) {
   dynamic shell=Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell"));dynamic shortcut=shell.CreateShortcut(path);
   shortcut.TargetPath=exe;shortcut.WorkingDirectory=root;shortcut.Description="Android USB画面表示・操作";shortcut.Save();
+ }
+ internal static void ExtractPayload(ZipArchive zip,string root) {
+   foreach(var entry in zip.Entries) {
+    string dest=Path.GetFullPath(Path.Combine(root,entry.FullName));
+    if(!dest.StartsWith(Path.GetFullPath(root)+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))throw new IOException("Invalid archive path");
+    if(entry.Name.Length==0){Directory.CreateDirectory(dest);continue;}
+    if(SameFile(entry,dest))continue;
+    Directory.CreateDirectory(Path.GetDirectoryName(dest));entry.ExtractToFile(dest,true);
+   }
  }
  internal static void RemoveObsoleteFiles(string root){
   string remote=Path.Combine(root,"remote");
