@@ -2,6 +2,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Net.Sockets;
 
 namespace PhoneDesk {
     public static class StreamOptions {
@@ -39,7 +41,7 @@ namespace PhoneDesk {
         }
     }
     public sealed class Device {
-        public string Serial, State, Model;
+        public string Serial, State, Model, Product;
         public bool Usb;
         public override string ToString() { return Model + "  (" + Serial + ")"; }
     }
@@ -55,6 +57,7 @@ namespace PhoneDesk {
                 foreach (var token in p.Skip(2)) {
                     if (token.StartsWith("usb:")) d.Usb = true;
                     if (token.StartsWith("model:")) d.Model = token.Substring(6).Replace('_', ' ');
+                    if (token.StartsWith("device:")) d.Product = token.Substring(7);
                 }
                 result.Add(d);
             }
@@ -63,6 +66,41 @@ namespace PhoneDesk {
         public static string Quote(string s) {
             if (s.IndexOfAny(new char[] { '"', '\r', '\n' }) >= 0) throw new ArgumentException("Invalid argument");
             return "\"" + s + "\"";
+        }
+    }
+    // Helpers for Android Wireless debugging (adb pair / adb connect).
+    public static class WifiDebug {
+        internal static bool TryEndpoint(string text,out string host,out int port) {
+            host=null;port=0;
+            if(string.IsNullOrWhiteSpace(text))return false;
+            string[] parts=text.Trim().Split(':');
+            if(parts.Length!=2)return false;
+            IPAddress address;
+            if(!IPAddress.TryParse(parts[0],out address)||address.AddressFamily!=AddressFamily.InterNetwork)return false;
+            int value;
+            if(!int.TryParse(parts[1],System.Globalization.NumberStyles.Integer,System.Globalization.CultureInfo.InvariantCulture,out value)||value<1||value>65535)return false;
+            host=parts[0];port=value;return true;
+        }
+        internal static bool TryPairing(string text,out string endpoint,out string code) {
+            endpoint=null;code=null;
+            if(string.IsNullOrWhiteSpace(text))return false;
+            string[] parts=text.Trim().Split((char[])null,StringSplitOptions.RemoveEmptyEntries);
+            if(parts.Length!=2)return false;
+            string host;int port;
+            if(!TryEndpoint(parts[0],out host,out port))return false;
+            if(parts[1].Length!=6)return false;
+            foreach(char ch in parts[1])if(ch<'0'||ch>'9')return false;
+            endpoint=host+":"+port.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            code=parts[1];return true;
+        }
+        // The same phone can appear as both a USB and a wireless ADB transport.
+        // Prefer USB and drop the wireless duplicate when model and product match.
+        internal static bool SamePhysical(Device a,Device b) {
+            if(a==null||b==null||a.Usb==b.Usb)return false;
+            if(a.State!="device"||b.State!="device")return false;
+            if(string.IsNullOrEmpty(a.Model)||string.IsNullOrEmpty(a.Product))return false;
+            return string.Equals(a.Model,b.Model,StringComparison.OrdinalIgnoreCase)
+                && string.Equals(a.Product,b.Product,StringComparison.OrdinalIgnoreCase);
         }
     }
     public sealed class SessionState {

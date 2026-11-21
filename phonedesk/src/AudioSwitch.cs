@@ -15,11 +15,11 @@ namespace PhoneDesk {
   [DllImport("gdi32.dll")]static extern int SetBkMode(IntPtr dc,int mode);
   [DllImport("gdi32.dll")]static extern uint SetTextColor(IntPtr dc,uint color);
   internal static void Refresh(IntPtr h){InvalidateRect(h,IntPtr.Zero,true);}
-  internal static void Draw(IntPtr data,bool enabled,IntPtr font){
+  internal static void Draw(IntPtr data,bool enabled,IntPtr font,string label){
    var item=(Item)Marshal.PtrToStructure(data,typeof(Item));var bounds=item.Bounds;
    Native.FillRect(item.DC,ref bounds,GetSysColorBrush(15));
    var oldFont=SelectObject(item.DC,font);int oldMode=SetBkMode(item.DC,1);uint oldText=SetTextColor(item.DC,0);
-   var label=bounds;label.Left+=4;label.Right-=58;DrawText(item.DC,"PCから音を出す",-1,ref label,0x824);
+   var text=bounds;text.Left+=4;text.Right-=58;DrawText(item.DC,label,-1,ref text,0x824);
    int left=bounds.Right-50,top=bounds.Top+(bounds.Bottom-bounds.Top-24)/2;
    var track=CreateSolidBrush(enabled?0xD77800u:0x888888u);var thumb=CreateSolidBrush(0xFFFFFF);
    var oldPen=SelectObject(item.DC,GetStockObject(8));var oldBrush=SelectObject(item.DC,track);

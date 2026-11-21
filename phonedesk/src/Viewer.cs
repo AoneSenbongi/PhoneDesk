@@ -13,7 +13,9 @@ namespace PhoneDesk {
   readonly IntPtr[] buttons=new IntPtr[5];
   double aspect;bool frameLandscape;
   internal bool Rotated {get;private set;}
+  internal const int DefaultDetailsWidth=320,MinimumDetailsWidth=240,MaximumDetailsWidth=720;
   internal int DetailsWidth {get;private set;}
+  static int detailsWidth=DefaultDetailsWidth;
   internal int ToolbarHeight {get{return DetailsWidth==0?44:0;}}
   internal int VideoWidth {get{Native.Rect r;Native.GetClientRect(Shell,out r);return Math.Max(1,r.Right-DetailsWidth);}}
   int compactWidth=420;
@@ -68,10 +70,24 @@ namespace PhoneDesk {
    int videoWidth=r.Right-DetailsWidth;
    if(DetailsWidth==0)compactWidth=videoWidth;
    int previousWidth=DetailsWidth;
-   DetailsWidth=expanded?320:0;
+   DetailsWidth=expanded?detailsWidth:0;
    Fit(expanded?videoWidth:compactWidth,previousWidth-DetailsWidth);
    if(!expanded)Focus();
   }
+  internal void SetDetailsWidth(int width) {
+   if(DetailsWidth==0)return;
+   var monitor=Monitor();
+   int limit=Math.Max(MinimumDetailsWidth,Math.Min(MaximumDetailsWidth,monitor.Work.Right-monitor.Work.Left-400));
+   width=Math.Max(MinimumDetailsWidth,Math.Min(limit,width));
+   detailsWidth=width;
+   if(width==DetailsWidth)return;
+   int previousWidth=DetailsWidth,videoWidth=VideoWidth;
+   DetailsWidth=width;
+   Fit(videoWidth,previousWidth-width);
+  }
+  internal bool Maximized {get{return (Native.GetStyle(Shell,-16).ToInt64()&0x01000000)!=0;}}
+  internal bool RestoreForDetailsResize(){bool maximized=Maximized;if(maximized)Native.ShowWindow(Shell,9);return maximized;}
+  internal void FinishDetailsResize(bool maximized){if(maximized)Native.ShowWindow(Shell,3);}
   internal void Resize() {
    Native.Rect r;Native.GetClientRect(Shell,out r);
    Native.SetWindowPos(Window,IntPtr.Zero,0,0,r.Right,r.Bottom,0x0014);Layout();
@@ -102,7 +118,7 @@ namespace PhoneDesk {
      Native.SetFocus(child);return IntPtr.Zero;
     }
     if(message==0x0014){Native.Rect r;Native.GetClientRect(h,out r);Native.FillRect(w,ref r,new IntPtr(16));return new IntPtr(1);}
-   }catch(Exception ex){Native.SetWindowText(Shell,"PhoneDesk | "+ex.Message);}
+   }catch(Exception ex){Program.Log("viewer "+ex);Native.SetWindowText(Shell,"PhoneDesk | "+ex.Message);}
    return Native.DefWindowProc(h,message,w,l);
   }
   internal IntPtr Geometry(uint message,IntPtr w,IntPtr l) {

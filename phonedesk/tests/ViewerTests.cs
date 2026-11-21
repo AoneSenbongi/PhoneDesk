@@ -93,6 +93,24 @@ class ViewerTests {
    Check(Math.Abs(client.Right-(client.Bottom-44)/aspect)<3,"viewer follows physical landscape frame");
    viewer.SetDeviceRotation(false);viewer.UpdateFrameSize(864,1920);Native.GetClientRect(shell,out client);
    Check(!viewer.Rotated&&Math.Abs(client.Right-(client.Bottom-44)*aspect)<3,"reset follows physical portrait frame");
+   viewer.SetDetails(true);
+   Native.Rect resizedBefore;Native.GetWindowRect(child,out resizedBefore);
+   viewer.SetDetailsWidth(420);
+   Check(viewer.DetailsWidth==420,"details width accepts a manual resize");
+   Native.Rect resizedAfter;Native.GetWindowRect(child,out resizedAfter);
+   Check(resizedAfter.Right-resizedAfter.Left==resizedBefore.Right-resizedBefore.Left&&resizedAfter.Bottom-resizedAfter.Top==resizedBefore.Bottom-resizedBefore.Top,"resizing details preserves video size");
+   Native.GetClientRect(shell,out client);
+   Check(Math.Abs(client.Right-420-client.Bottom*aspect)<2,"resized details keeps video aspect");
+   viewer.SetDetailsWidth(1);
+   Check(viewer.DetailsWidth==Viewer.MinimumDetailsWidth,"details width clamps to the minimum");
+   var monitorInfo=new Native.MonitorInfo{Size=Marshal.SizeOf(typeof(Native.MonitorInfo))};
+   Native.GetMonitorInfo(Native.MonitorFromWindow(shell,2),ref monitorInfo);
+   int limit=Math.Max(Viewer.MinimumDetailsWidth,Math.Min(Viewer.MaximumDetailsWidth,monitorInfo.Work.Right-monitorInfo.Work.Left-400));
+   viewer.SetDetailsWidth(4000);
+   Check(viewer.DetailsWidth==limit&&limit<4000,"details width clamps to the monitor");
+   viewer.SetDetailsWidth(400);viewer.SetDetails(false);viewer.SetDetails(true);
+   Check(viewer.DetailsWidth==400,"reopening details keeps the resized width");
+   viewer.SetDetailsWidth(Viewer.DefaultDetailsWidth);
    current=null;
   }
   Check(IsWindow(shell),"disposing stream viewer keeps original shell alive");

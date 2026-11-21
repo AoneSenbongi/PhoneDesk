@@ -7,7 +7,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using Microsoft.Win32;
 [assembly: AssemblyTitle("PhoneDesk Setup")]
-[assembly: AssemblyVersion("1.0.22.0")]
+[assembly: AssemblyVersion("1.0.23.0")]
 class Setup {
  [System.Runtime.InteropServices.DllImport("user32.dll",CharSet=System.Runtime.InteropServices.CharSet.Unicode)]
  static extern int MessageBox(IntPtr window,string text,string caption,uint type);

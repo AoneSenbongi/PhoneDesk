@@ -8,7 +8,7 @@ class CoreTests {
         var ds = DeviceParser.Parse("* daemon started successfully *\nList of devices attached\nabc device usb:1-2 product:x model:Pixel_7 transport_id:1\n192.168.0.4:5555 device product:x model:Remote\nxyz unauthorized usb:2\nzzz offline usb:3\n");
         Check(ds.Count == 4, "parse count");
         Check(ds[0].Usb && ds[0].State == "device" && ds[0].Model == "Pixel 7", "USB model");
-        Check(!ds[1].Usb, "exclude wireless");
+        Check(!ds[1].Usb && ds[1].Model == "Remote", "parse wireless");
         Check(DeviceParser.Parse("0123456789ABCDEF device product:PacmanJPN model:A142 device:Pacman transport_id:214")[0].Usb, "Windows USB without usb attribute");
         Check(!DeviceParser.Parse("adb-abc._adb-tls-connect._tcp device model:Remote")[0].Usb, "exclude mDNS wireless");
         Check(!DeviceParser.Parse("emulator-5554 device model:Emulator")[0].Usb, "exclude emulator");
@@ -25,6 +25,20 @@ class CoreTests {
         Check(DeviceParser.Quote("abc:123") == "\"abc:123\"", "serial quoting");
         bool rejected=false; try { DeviceParser.Quote("bad\"serial"); } catch(ArgumentException) { rejected=true; }
         Check(rejected,"reject argument injection");
+        string host;int port;
+        Check(WifiDebug.TryEndpoint("192.168.137.1:37011",out host,out port)&&host=="192.168.137.1"&&port==37011,"wifi endpoint");
+        Check(!WifiDebug.TryEndpoint("192.168.137.1",out host,out port),"wifi endpoint needs port");
+        Check(!WifiDebug.TryEndpoint("192.168.137.1:0",out host,out port),"wifi endpoint port range");
+        Check(!WifiDebug.TryEndpoint("example.com:5555",out host,out port),"wifi endpoint requires ip");
+        string pairEndpoint,pairCode;
+        Check(WifiDebug.TryPairing("192.168.137.1:12345 123456",out pairEndpoint,out pairCode)&&pairEndpoint=="192.168.137.1:12345"&&pairCode=="123456","wifi pairing");
+        Check(!WifiDebug.TryPairing("192.168.137.1:12345 abcdef",out pairEndpoint,out pairCode),"wifi pairing code digits");
+        var usb=DeviceParser.Parse("ABC device product:PacmanJPN model:A142 device:Pacman usb:1-2")[0];
+        var wifi=DeviceParser.Parse("192.168.137.1:5555 device product:PacmanJPN model:A142 device:Pacman")[0];
+        var other=DeviceParser.Parse("192.168.137.2:5555 device product:Other model:Other device:Other")[0];
+        Check(WifiDebug.SamePhysical(usb,wifi),"detect duplicate usb/wifi phone");
+        Check(!WifiDebug.SamePhysical(usb,other),"different product is not duplicate");
+        Console.WriteLine("PASS: wifi debug (10 checks)");
         Console.WriteLine("PASS: " + checks + " checks");
         var volume=VolumeState.Parse("diagnostic\nVOLUME 7 0 16\n");
         Check(volume.Value==7&&volume.Min==0&&volume.Max==16,"volume parser ignores diagnostics");
